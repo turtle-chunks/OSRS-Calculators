@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Kill & Drop Rate Calculator</title>
+  <script src="jspsych/jspsych.js"></script>
+  <script src="jspsych/plugin-html-keyboard-response.js"></script>
+  <script src="jspsych/plugin-survey-html-form.js"></script>
+  <script src="jspsych/plugin-call-function.js"></script>
+  <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
+  <style>
+    /* Ensure full-height page and remove margins */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+    /* Background image settings */
+    body {
+      background: url('old-school-runescape-map.jpg') no-repeat center center fixed;
+      background-size: cover;
+    }
+    /* jsPsych display container styling */
+    #jspsych-target {
+      position: relative;
+      height: 100%;
+    }
+    /* Instruction dialog: a white, nearly opaque box */
+    .instruction-dialog {
+      background-color: rgba(255, 255, 255, 0.9); /* nearly opaque white */
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 800px;
+      margin: 40px auto;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    /* Side images for the dark wizard */
+    .side-image {
+      width: 200px; /* adjust size as needed */
+      height: auto;
+    }
+    .left-image {
+      transform: scaleX(-1);
+      margin-right: 20px;
+    }
+    .right-image {
+      margin-left: 20px;
+    }
+    .instruction-content {
+      font-size: 1.2em;
+      text-align: center;
+      color: #000;
+    }
+    /* Styles for the form fields inside the container */
+    .instruction-dialog p {
+      margin: 1em 0;
+    }
+    .instruction-dialog input,
+    .instruction-dialog select {
+      padding: 5px;
+      font-size: 1em;
+      margin-top: 5px;
+    }
+  </style>
+  <script>
+    // Helper function to wrap content in a text dialog box.
+    const createInstructionDialog = (content) => {
+      return `
+      <div style="display: flex; align-items: center; justify-content: center;">
+        <img class="side-image left-image" src="darkwizard.png" alt="Dark Wizard">
+        <div class="instruction-dialog">
+          <div class="instruction-content">
+            ${content}
+          </div>
+        </div>
+        <img class="side-image right-image" src="darkwizard.png" alt="Dark Wizard">
+      </div>
+      `;
+    };
+
+    // Initialize jsPsych.
+    const jsPsych = initJsPsych();
+
+    // Define average drop rates for each item (from the Runescape website).
+    const averageDropRates = {
+      "Bones": 1,
+      "Staff": 0.0625,
+      "Wizard hat (black)": 0.007575758,
+      "wizard robe (black)": 0.023435669,
+      "Air rune": 0.515606691,
+      "Water rune": 0.515606691,
+      "Earth rune": 1.640606691,
+      "Fire rune": 0.515606691,
+      "Body rune": 0.515606691,
+      "Mind rune": 0.515606691,
+      "Chaos rune": 0.234411627,
+      "Blood rune": 0.03125,
+      "Cosmic rune": 0.015625,
+      "Law rune": 0.0234375,
+      "Coins": 1.51552791,
+      "Water Talisman": 0.0078125,
+      "Fire Talisman": 0.0078125,
+      "Beginner clue": 0.02
+    };
+
+    let calculationResults;
+
+    // Combined trial: Instructions and Input Fields in one container.
+    const combined_input_trial = {
+      type: jsPsychSurveyHtmlForm,
+      html: createInstructionDialog(`
+        <p>Welcome to the Kill & Drop Rate Calculator.</p>
+        <p>Enter your overall kills, the number of items obtained, and select the item type to get your results.</p>
+        <p>
+          <strong>Overall Kills:</strong><br>
+          <input name="kills" type="number" step="any">
+        </p>
+        <p>
+          <strong>Items Obtained:</strong><br>
+          <input name="itemsObtained" type="number" step="any">
+        </p>
+        <p>
+          <strong>Item Type:</strong><br>
+          <select name="itemType">
+            <option value="Bones">Bones</option>
+            <option value="Staff">Staff</option>
+            <option value="Wizard hat (black)">Wizard hat (black)</option>
+            <option value="wizard robe (black)">wizard robe (black)</option>
+            <option value="Air rune">Air rune</option>
+            <option value="Water rune">Water rune</option>
+            <option value="Earth rune">Earth rune</option>
+            <option value="Fire rune">Fire rune</option>
+            <option value="Body rune">Body rune</option>
+            <option value="Mind rune">Mind rune</option>
+            <option value="Chaos rune">Chaos rune</option>
+            <option value="Blood rune">Blood rune</option>
+            <option value="Cosmic rune">Cosmic rune</option>
+            <option value="Law rune">Law rune</option>
+            <option value="Coins">Coins</option>
+            <option value="Water Talisman">Water Talisman</option>
+            <option value="Fire Talisman">Fire Talisman</option>
+            <option value="Beginner clue">Beginner clue</option>
+          </select>
+        </p>
+      `),
+      button_label: 'Submit'
+    };
+
+    // Trial to perform calculations.
+    const calculate_trial = {
+      type: jsPsychCallFunction,
+      func: function() {
+        const data = jsPsych.data.get().last(1).values()[0];
+        const response = (typeof data.response === 'string') ? JSON.parse(data.response) : data.response;
+        const kills = parseFloat(response.kills);
+        const itemsObtained = parseFloat(response.itemsObtained);
+        const itemType = response.itemType;
+        if (isNaN(kills) || isNaN(itemsObtained) || kills <= 0) {
+          calculationResults = { error: 'Invalid input. Please ensure that overall kills is a positive number and items obtained is valid.' };
+        } else {
+          const userDropRate = itemsObtained / kills;
+          const userKillsPerDrop = itemsObtained > 0 ? (kills / itemsObtained) : Infinity;
+          const avgDropRate = averageDropRates[itemType];
+          const relativeDropRate = userDropRate / avgDropRate;
+          calculationResults = {
+            userDropRate: userDropRate,
+            userKillsPerDrop: userKillsPerDrop,
+            relativeDropRate: relativeDropRate
+          };
+        }
+      }
+    };
+
+    // Trial to display feedback.
+    const feedback_trial = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function() {
+        let feedbackContent = '';
+        if (calculationResults.error) {
+          feedbackContent = `<p>${calculationResults.error}</p>`;
+        } else {
+          let explanation = '';
+          if (calculationResults.relativeDropRate > 1) {
+            let abovePercent = ((calculationResults.relativeDropRate - 1) * 100).toFixed(2);
+            explanation = `<p>Your drop rate is ${abovePercent}% above the OSRS average.</p>`;
+          } else if (calculationResults.relativeDropRate < 1) {
+            let belowPercent = ((1 - calculationResults.relativeDropRate) * 100).toFixed(2);
+            explanation = `<p>Your drop rate is ${belowPercent}% below the OSRS average.</p>`;
+          } else {
+            explanation = `<p>Your drop rate exactly matches the OSRS average.</p>`;
+          }
+          feedbackContent += `
+            <h3>Calculation Results:</h3>
+            <p><strong>User Drop Rate:</strong> ${calculationResults.userDropRate.toFixed(4)}</p>
+            <p><strong>User Kill per Drop:</strong> ${calculationResults.userKillsPerDrop === Infinity ? 'Infinity (No drops obtained)' : calculationResults.userKillsPerDrop.toFixed(2)}</p>
+            <p><strong>Relative Drop Rate:</strong> ${calculationResults.relativeDropRate.toFixed(4)}</p>
+            ${explanation}
+          `;
+        }
+        return createInstructionDialog(feedbackContent);
+      }
+    };
+
+    // Define the timeline: input form, calculation, and feedback.
+    const timeline = [combined_input_trial, calculate_trial, feedback_trial];
+    jsPsych.run(timeline, { display_element: document.getElementById('jspsych-target') });
+  </script>
+</head>
+<body>
+  <!-- Container for jsPsych content -->
+  <div id="jspsych-target"></div>
+</body>
+</html>
